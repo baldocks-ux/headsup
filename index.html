@@ -3,123 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GeoHeads: Final Fix</title>
+    <title>GeoHeads: Pro Edition</title>
     <style>
         :root { --primary: #1b5e20; --secondary: #01579b; --correct: #2e7d32; --pass: #c62828; --light: #f1f8e9; }
-        body { font-family: sans-serif; margin: 0; background: var(--light); text-align: center; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        .screen { display: none; padding: 20px; flex-grow: 1; flex-direction: column; justify-content: center; }
+        body { font-family: sans-serif; margin: 0; background: var(--light); text-align: center; height: 100vh; display: flex; flex-direction: column; overflow: hidden; touch-action: manipulation; }
+        .screen { display: none; padding: 20px; flex-grow: 1; flex-direction: column; justify-content: center; position: relative; }
         .active { display: flex; }
-        #word-display { font-size: 4rem; font-weight: bold; text-transform: uppercase; }
-        #timer { font-size: 2.5rem; font-weight: bold; margin-bottom: 20px; }
-        .btn { background: var(--primary); color: white; border: none; padding: 20px 40px; font-size: 1.5rem; border-radius: 10px; }
-        #game-screen { background: var(--secondary); color: white; transition: background 0.2s; }
+        #word-display { font-size: 4.5rem; font-weight: bold; text-transform: uppercase; z-index: 10; pointer-events: none; }
+        #timer { font-size: 3rem; font-weight: bold; position: absolute; top: 10px; right: 20px; color: #ffeb3b; z-index: 20; }
+        .btn { background: var(--primary); color: white; border: none; padding: 25px 50px; font-size: 2rem; border-radius: 15px; cursor: pointer; }
+        
+        /* Game Screen Setup */
+        #game-screen { background: var(--secondary); color: white; transition: background 0.3s; cursor: pointer; }
         .flash-correct { background-color: var(--correct) !important; }
         .flash-pass { background-color: var(--pass) !important; }
-        /* Debug text at the bottom */
-        #debug { position: absolute; bottom: 5px; width: 100%; font-size: 0.7rem; opacity: 0.5; color: white; }
+        
+        /* Tap Zones for Manual Backup */
+        .tap-zone { position: absolute; top: 0; height: 100%; width: 50%; z-index: 5; }
+        #pass-zone { left: 0; }
+        #correct-zone { right: 0; }
     </style>
 </head>
 <body>
 
     <div id="start-screen" class="screen active">
         <h1>🌍 COASTS 30s</h1>
-        <p>Nod Down for Correct<br>Tilt Up for Pass</p>
-        <button class="btn" onclick="requestPermission()">START GAME</button>
+        <p>Nod Down: Correct | Tilt Up: Pass<br>(Or tap left/right of screen)</p>
+        <button class="btn" onclick="requestPermission()">START</button>
     </div>
 
     <div id="game-screen" class="screen">
         <div id="timer">30</div>
         <div id="word-display">READY?</div>
-        <div id="debug">Tilt: 0</div>
+        <div id="pass-zone" class="tap-zone" onclick="action(false)"></div>
+        <div id="correct-zone" class="tap-zone" onclick="action(true)"></div>
     </div>
 
     <div id="results-screen" class="screen">
-        <h1>Done!</h1>
-        <div id="final-score" style="font-size: 3rem;"></div>
-        <button class="btn" onclick="location.reload()">RESTART</button>
+        <h1>Time's Up!</h1>
+        <div id="final-score" style="font-size: 4rem; color: var(--primary);"></div>
+        <button class="btn" onclick="location.reload()">PLAY AGAIN</button>
     </div>
 
     <script>
         const coastalDeck = ["Abrasion", "Attrition", "Hydraulic Action", "Solution", "Longshore Drift", "Swash", "Backwash", "Fetch", "Constructive Wave", "Destructive Wave", "Headland", "Bay", "Wave-cut Platform", "Cave", "Arch", "Stack", "Stump", "Spit", "Bar", "Tombolo", "Hard Engineering", "Soft Engineering", "Sea Wall", "Groyne", "Rock Armour", "Gabion", "Beach Nourishment", "Managed Retreat"];
 
-        let score = 0, timeLeft = 30, gameActive = false, canAction = true;
+        let score = 0, timeLeft = 30, gameActive = false, isProcessing = false;
         let currentWordIndex = 0;
 
         function requestPermission() {
             if (typeof DeviceOrientationEvent.requestPermission === 'function') {
                 DeviceOrientationEvent.requestPermission()
                     .then(res => { if(res === 'granted') startGame(); })
-                    .catch(() => alert("Please allow motion sensors in settings!"));
-            } else { startGame(); }
-        }
-
-        function startGame() {
-            document.getElementById('start-screen').classList.remove('active');
-            document.getElementById('game-screen').classList.add('active');
-            gameActive = true;
-            coastalDeck.sort(() => Math.random() - 0.5);
-            
-            const gameClock = setInterval(() => {
-                timeLeft--;
-                document.getElementById('timer').innerText = timeLeft;
-                if(timeLeft <= 0) { clearInterval(gameClock); endGame(); }
-            }, 1000);
-
-            window.addEventListener('deviceorientation', handleOrientation);
-            showWord();
-        }
-
-        function showWord() {
-            if (currentWordIndex >= coastalDeck.length) { endGame(); return; }
-            document.getElementById('word-display').innerText = coastalDeck[currentWordIndex];
-        }
-
-        function handleOrientation(event) {
-            if (!gameActive || !canAction) return;
-
-            // We look at Beta (portrait nod) and Gamma (landscape nod)
-            const b = event.beta; 
-            const g = event.gamma;
-            document.getElementById('debug').innerText = `B: ${Math.round(b)} | G: ${Math.round(g)}`;
-
-            // TRIGGER CORRECT (Nodding phone face toward floor)
-            // On most phones, tilting the top of the phone forward 
-            // causes Beta to drop below 45 or Gamma to drop.
-            if (b < 35 || g < -35) {
-                action(true);
-            } 
-            // TRIGGER PASS (Tilting phone face toward ceiling)
-            else if (b > 145 || g > 35) {
-                action(false);
-            }
-        }
-
-        function action(isCorrect) {
-            canAction = false; // Stop multiple triggers
-            const screen = document.getElementById('game-screen');
-            
-            if (isCorrect) {
-                score++;
-                screen.classList.add('flash-correct');
-            } else {
-                screen.classList.add('flash-pass');
-            }
-
-            setTimeout(() => {
-                screen.classList.remove('flash-correct', 'flash-pass');
-                currentWordIndex++;
-                showWord();
-                // 1-second "breath" before the next word can be triggered
-                setTimeout(() => { canAction = true; }, 1000);
-            }, 600);
-        }
-
-        function endGame() {
-            gameActive = false;
-            document.getElementById('game-screen').classList.remove('active');
-            document.getElementById('results-screen').classList.add('active');
-            document.getElementById('final-score').innerText = `Words: ${score}`;
-        }
-    </script>
-</body>
-</html>
+                    .catch(() => alert("Sensor
