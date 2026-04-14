@@ -3,39 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GeoHeads: Coasts Final</title>
+    <title>GeoHeads Final</title>
     <style>
-        :root { --primary: #1b5e20; --secondary: #01579b; --correct: #2e7d32; --pass: #c62828; --light: #f1f8e9; }
-        body { font-family: sans-serif; margin: 0; background: var(--light); text-align: center; height: 100vh; display: flex; flex-direction: column; overflow: hidden; touch-action: manipulation; }
-        .screen { display: none; padding: 20px; flex-grow: 1; flex-direction: column; justify-content: center; position: relative; }
+        :root { --primary: #2e7d32; --secondary: #0277bd; --correct: #388e3c; --pass: #d32f2f; }
+        body { font-family: sans-serif; margin: 0; background: #eee; text-align: center; height: 100vh; overflow: hidden; touch-action: manipulation; }
+        .screen { display: none; height: 100vh; width: 100vw; flex-direction: column; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; }
         .active { display: flex; }
-        #word-display { font-size: 4rem; font-weight: bold; text-transform: uppercase; z-index: 10; pointer-events: none; }
-        #timer { font-size: 3rem; font-weight: bold; position: absolute; top: 10px; right: 20px; color: #ffeb3b; z-index: 20; }
-        .btn { background: var(--primary); color: white; border: none; padding: 25px 50px; font-size: 2rem; border-radius: 15px; cursor: pointer; }
         #game-screen { background: var(--secondary); color: white; transition: background 0.2s; }
+        #word-display { font-size: 4rem; font-weight: bold; text-transform: uppercase; padding: 20px; }
+        #timer { font-size: 3rem; position: absolute; top: 20px; right: 30px; font-weight: bold; }
+        .start-btn { background: var(--primary); color: white; border: none; padding: 40px 80px; font-size: 3rem; border-radius: 20px; cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
         .flash-correct { background-color: var(--correct) !important; }
         .flash-pass { background-color: var(--pass) !important; }
-        /* Invisible tap zones */
         .tap-zone { position: absolute; top: 0; height: 100%; width: 50%; z-index: 5; }
-        #pass-zone { left: 0; }
-        #correct-zone { right: 0; }
     </style>
 </head>
 <body>
 
     <div id="start-screen" class="screen active">
-        <h1>🌍 COASTS BLITZ</h1>
-        <p>Tilt DOWN (Floor): Correct ✅<br>Tilt UP (Ceiling): Pass ❌</p>
-        <button class="btn" onclick="initGame()">START</button>
+        <h1 style="font-size: 3rem;">🌍 COASTS</h1>
+        <button class="start-btn" onclick="playNow()">START</button>
+        <p>Tilt Down = ✅ | Tilt Up = ❌</p>
     </div>
 
     <div id="game-screen" class="screen">
         <div id="timer">30</div>
-        <div id="word-display">READY?</div>
-        <div id="pass-zone" class="tap-zone" onclick="handleAction(false)"></div>
-        <div id="correct-zone" class="tap-zone" onclick="handleAction(true)"></div>
+        <div id="word-display">...</div>
+        <div style="left:0;" class="tap-zone" onclick="doAction(false)"></div>
+        <div style="right:0;" class="tap-zone" onclick="doAction(true)"></div>
     </div>
 
     <div id="results-screen" class="screen">
-        <h1>Time's Up!</h1>
-        <div id="final-score" style="font-size: 4
+        <h1>Score: <span id="final-score">0</span></h1>
+        <button class="start-btn" style="font-size: 1.5rem; padding: 20px;" onclick="location.reload()">RETRY</button>
+    </div>
+
+    <script>
+        const deck = ["Abrasion", "Attrition", "Hydraulic Action", "Solution", "Longshore Drift", "Swash", "Backwash", "Fetch", "Constructive Wave", "Destructive Wave", "Headland", "Bay", "Wave-cut Platform", "Cave", "Arch", "Stack", "Stump", "Spit", "Bar", "Tombolo", "Hard Engineering", "Soft Engineering", "Sea Wall", "Groyne", "Rock Armour", "Gabion", "Beach Nourishment", "Managed Retreat"];
+        
+        let score = 0, timeLeft = 30, active = false, coolingDown = false, idx = 0;
+
+        async function playNow() {
+            // Attempt sensor access
+            if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try { await DeviceOrientationEvent.requestPermission(); } catch (e) {}
+            }
+            
+            // Move to game screen immediately
+            document.getElementById('start-screen').className = 'screen';
+            document.getElementById('game-screen').className = 'screen active';
+            active = true;
+            deck.sort(() => Math.random() - 0.5);
+            
+            // Start Timer
+            const t = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer').innerText = timeLeft;
+                if(timeLeft <= 0) { clearInterval(t); finish(); }
+            }, 1000);
+
+            window.addEventListener('deviceorientation', (e) => {
+                if (!active || coolingDown) return;
+                if (e.beta < 40) doAction(true);      // Nod Down
+                else if (e.beta > 115) doAction(false); // Tilt Up
+            });
+
+            next();
+        }
+
+        function next() {
+            if (idx >= deck.length) return finish();
+            document.getElementById('word-display').innerText = deck[idx];
+        }
+
+        function doAction(isCorrect) {
+            if (coolingDown || !active) return;
+            coolingDown = true;
+            
+            const s = document.getElementById('game-screen');
+            if (isCorrect) { score++; s.className = 'screen active flash-correct'; }
+            else { s.className = 'screen active flash-pass'; }
+
+            setTimeout(() => {
+                s.className = 'screen active';
+                idx++;
+                next();
+                setTimeout(() => { coolingDown = false; }, 800);
+            }, 400);
+        }
+
+        function finish() {
+            active = false;
+            document.getElementById('game-screen').className = 'screen';
+            document.getElementById('results-screen').className = 'screen active';
+            document.getElementById('final-score').innerText = score;
+        }
+    </script>
+</body>
+</html>
