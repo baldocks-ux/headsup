@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GeoHeads: Final Release</title>
+    <title>GeoHeads: Coasts Final</title>
     <style>
         :root { --primary: #1b5e20; --secondary: #01579b; --correct: #2e7d32; --pass: #c62828; --light: #f1f8e9; }
         body { font-family: sans-serif; margin: 0; background: var(--light); text-align: center; height: 100vh; display: flex; flex-direction: column; overflow: hidden; touch-action: manipulation; }
@@ -12,9 +12,10 @@
         #word-display { font-size: 4rem; font-weight: bold; text-transform: uppercase; z-index: 10; pointer-events: none; }
         #timer { font-size: 3rem; font-weight: bold; position: absolute; top: 10px; right: 20px; color: #ffeb3b; z-index: 20; }
         .btn { background: var(--primary); color: white; border: none; padding: 25px 50px; font-size: 2rem; border-radius: 15px; cursor: pointer; }
-        #game-screen { background: var(--secondary); color: white; transition: background 0.3s; }
+        #game-screen { background: var(--secondary); color: white; transition: background 0.2s; }
         .flash-correct { background-color: var(--correct) !important; }
         .flash-pass { background-color: var(--pass) !important; }
+        /* Invisible tap zones */
         .tap-zone { position: absolute; top: 0; height: 100%; width: 50%; z-index: 5; }
         #pass-zone { left: 0; }
         #correct-zone { right: 0; }
@@ -23,9 +24,9 @@
 <body>
 
     <div id="start-screen" class="screen active">
-        <h1>🌍 COASTS 30s</h1>
-        <p>Tilt DOWN: Correct | Tilt UP: Pass<br><b>OR tap the screen sides!</b></p>
-        <button class="btn" id="start-btn" onclick="initGame()">START</button>
+        <h1>🌍 COASTS BLITZ</h1>
+        <p>Tilt DOWN (Floor): Correct ✅<br>Tilt UP (Ceiling): Pass ❌</p>
+        <button class="btn" onclick="initGame()">START</button>
     </div>
 
     <div id="game-screen" class="screen">
@@ -37,85 +38,4 @@
 
     <div id="results-screen" class="screen">
         <h1>Time's Up!</h1>
-        <div id="final-score" style="font-size: 4rem; color: var(--primary);"></div>
-        <button class="btn" onclick="location.reload()">RESTART</button>
-    </div>
-
-    <script>
-        const coastalDeck = ["Abrasion", "Attrition", "Hydraulic Action", "Solution", "Longshore Drift", "Swash", "Backwash", "Fetch", "Constructive Wave", "Destructive Wave", "Headland", "Bay", "Wave-cut Platform", "Cave", "Arch", "Stack", "Stump", "Spit", "Bar", "Tombolo", "Hard Engineering", "Soft Engineering", "Sea Wall", "Groyne", "Rock Armour", "Gabion", "Beach Nourishment", "Managed Retreat"];
-
-        let score = 0, timeLeft = 30, gameActive = false, isProcessing = false;
-        let currentWordIndex = 0;
-
-        // NEW: Force start even if permissions fail
-        async function initGame() {
-            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                try {
-                    const response = await DeviceOrientationEvent.requestPermission();
-                    console.log("Permission:", response);
-                } catch (e) {
-                    console.log("Sensor permission denied, using Taps only.");
-                }
-            }
-            // Always launch the game, regardless of sensor status
-            runGameLoop();
-        }
-
-        function runGameLoop() {
-            document.getElementById('start-screen').classList.remove('active');
-            document.getElementById('game-screen').classList.add('active');
-            gameActive = true;
-            coastalDeck.sort(() => Math.random() - 0.5);
-            
-            const gameClock = setInterval(() => {
-                timeLeft--;
-                document.getElementById('timer').innerText = timeLeft;
-                if(timeLeft <= 0) { clearInterval(gameClock); endGame(); }
-            }, 1000);
-
-            window.addEventListener('deviceorientation', (event) => {
-                if (!gameActive || isProcessing) return;
-                const b = event.beta;
-                const g = event.gamma;
-                // Tilt logic
-                if (b < 40 || g < -40) { handleAction(true); } 
-                else if (b > 140 || g > 40) { handleAction(false); }
-            });
-
-            renderWord();
-        }
-
-        function renderWord() {
-            if (currentWordIndex >= coastalDeck.length) { endGame(); return; }
-            document.getElementById('word-display').innerText = coastalDeck[currentWordIndex];
-        }
-
-        function handleAction(isCorrect) {
-            if (isProcessing || !gameActive) return;
-            isProcessing = true;
-            
-            const screen = document.getElementById('game-screen');
-            if (isCorrect) {
-                score++;
-                screen.classList.add('flash-correct');
-            } else {
-                screen.classList.add('flash-pass');
-            }
-
-            setTimeout(() => {
-                screen.classList.remove('flash-correct', 'flash-pass');
-                currentWordIndex++;
-                renderWord();
-                setTimeout(() => { isProcessing = false; }, 1000); // 1s cooldown
-            }, 500);
-        }
-
-        function endGame() {
-            gameActive = false;
-            document.getElementById('game-screen').classList.remove('active');
-            document.getElementById('results-screen').classList.add('active');
-            document.getElementById('final-score').innerText = `Words: ${score}`;
-        }
-    </script>
-</body>
-</html>
+        <div id="final-score" style="font-size: 4
